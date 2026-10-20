@@ -1,0 +1,544 @@
+<title>Calc 3 Quest</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600;700&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: arcade HUD on top, world map of levels grouped by study day; levels open into Lesson / Quest / Boss screens on a graph-paper night sky. Single deliberate dark theme. */
+:root{
+  --bg:#141428; --grid:#1f2142; --panel:#1c1d3a; --panel2:#25274d; --line:#3a3d6e;
+  --fg:#eceaff; --muted:#a3a3cf; --mint:#5ef0c4; --sun:#ffd166; --pink:#ff7eb6; --sky:#7aa8ff;
+  --good:#5ef0c4; --bad:#ff6b7f;
+  --display:"Pixelify Sans","Courier New",monospace;
+  --body:"Atkinson Hyperlegible",system-ui,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{background:var(--bg)}
+body{color:var(--fg);font-family:var(--body);font-size:16px;line-height:1.6;
+  background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:28px 28px;background-attachment:fixed;min-height:100vh}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--panel)}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:3px solid var(--sun);outline-offset:2px}
+.wrap{max-width:860px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 60px}
+
+/* HUD */
+.hud{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--panel);border-bottom:3px solid var(--line)}
+.hud .in{max-width:860px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:10px;display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center}
+.logo{font-family:var(--display);font-size:22px;font-weight:700;color:var(--sun);letter-spacing:.5px;background:none;border:0;padding:0}
+.logo span{color:var(--mint)}
+.stats{display:flex;gap:14px;align-items:center;margin-left:auto;font-family:var(--mono);font-size:13px}
+.stat b{color:var(--sun);font-variant-numeric:tabular-nums}
+.xpbar{width:110px;height:10px;background:var(--bg);border:2px solid var(--line);position:relative}
+.xpbar i{position:absolute;inset:0 auto 0 0;background:var(--mint);transition:width .4s}
+.nav{display:flex;gap:6px;width:100%;flex-wrap:wrap}
+.nav button{background:transparent;border:2px solid var(--line);padding:4px 12px;font-family:var(--display);font-size:15px;color:var(--muted)}
+.nav button[aria-pressed="true"]{background:var(--sky);border-color:var(--sky);color:var(--bg)}
+
+h1,h2,h3{font-family:var(--display);text-wrap:balance;line-height:1.2;margin:0}
+h1{font-size:30px}h2{font-size:24px}h3{font-size:19px}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+p{margin:0}
+.stack{display:flex;flex-direction:column;gap:14px}
+
+/* Map */
+.intro{display:flex;flex-direction:column;gap:8px;margin-bottom:22px}
+.countdown{font-family:var(--mono);font-size:14px;color:var(--pink)}
+.day{display:grid;grid-template-columns:92px 1fr;gap:14px;align-items:start;padding-block:14px;border-top:2px dashed var(--line)}
+.day .when{font-family:var(--display);font-size:17px;color:var(--muted);line-height:1.2}
+.day .when b{display:block;font-size:24px;color:var(--fg)}
+.day.today .when b{color:var(--sun)}
+.day.today .when::after{content:"TODAY";display:inline-block;margin-top:6px;font-family:var(--mono);font-size:11px;background:var(--sun);color:var(--bg);padding:1px 6px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;min-width:0}
+.tile{text-align:left;background:var(--panel);border:3px solid var(--line);padding:12px 14px;display:flex;flex-direction:column;gap:6px;box-shadow:4px 4px 0 #0b0b1a;transition:transform .1s}
+.tile:hover{transform:translate(-2px,-2px);box-shadow:6px 6px 0 #0b0b1a;border-color:var(--sky)}
+.tile .sec{font-family:var(--mono);font-size:12px;color:var(--sky)}
+.tile .nm{font-family:var(--display);font-size:18px;line-height:1.2}
+.tile .prog{display:flex;gap:6px;font-family:var(--mono);font-size:12px;color:var(--muted)}
+.pip{padding:0 5px;border:1px solid var(--line)}
+.pip.on{background:var(--mint);color:var(--bg);border-color:var(--mint)}
+.tile.soon{opacity:.55;box-shadow:none;cursor:default}
+.tile.soon:hover{transform:none;border-color:var(--line)}
+.tile.final{border-color:var(--pink)}
+
+/* Level */
+.lvhead{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+.back{background:none;border:0;padding:0;color:var(--sky);font-family:var(--mono);font-size:13px;align-self:flex-start}
+.modes{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}
+.modes button{background:var(--panel);border:3px solid var(--line);padding:6px 14px;font-family:var(--display);font-size:16px}
+.modes button[aria-pressed="true"]{border-color:var(--sun);color:var(--sun)}
+.card{background:var(--panel);border:3px solid var(--line);padding:18px 20px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.card .body{display:flex;flex-direction:column;gap:12px;max-width:68ch}
+.card ul,.card ol{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:4px}
+.ex{background:var(--panel2);border-left:4px solid var(--sky);padding:12px 14px;display:flex;flex-direction:column;gap:6px}
+.ex .lab{font-family:var(--mono);font-size:12px;color:var(--sky);letter-spacing:.08em;text-transform:uppercase}
+.tip{background:var(--panel2);border-left:4px solid var(--sun);padding:10px 14px}
+.tip b:first-child{color:var(--sun)}
+.trap{background:var(--panel2);border-left:4px solid var(--pink);padding:10px 14px}
+.trap b:first-child{color:var(--pink)}
+.tbl{overflow-x:auto}
+table{border-collapse:collapse;font-size:15px;min-width:480px}
+th,td{border:1px solid var(--line);padding:6px 10px;text-align:left;vertical-align:top}
+th{font-family:var(--mono);font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.stepper{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:4px}
+.dots{display:flex;gap:5px;flex-wrap:wrap}
+.dots i{width:10px;height:10px;background:var(--line)}
+.dots i.on{background:var(--mint)}
+.btn{background:var(--mint);color:var(--bg);border:0;padding:9px 16px;font-family:var(--display);font-size:17px;box-shadow:3px 3px 0 #0b0b1a}
+.btn:active{transform:translate(2px,2px);box-shadow:1px 1px 0 #0b0b1a}
+.btn.ghost{background:transparent;color:var(--fg);border:2px solid var(--line);box-shadow:none}
+.btn.pink{background:var(--pink)}
+.btn.sun{background:var(--sun)}
+.btn:disabled{opacity:.4;cursor:default}
+
+/* Quiz */
+.qtop{display:flex;justify-content:space-between;align-items:center;gap:10px;font-family:var(--mono);font-size:13px;color:var(--muted);flex-wrap:wrap}
+.hearts{font-size:18px;letter-spacing:2px;color:var(--pink)}
+.combo{color:var(--sun)}
+.prompt{font-size:18px}
+.diff{font-family:var(--mono);font-size:11px;padding:1px 6px;border:1px solid currentColor}
+.diff.e{color:var(--mint)}.diff.m{color:var(--sun)}.diff.h{color:var(--pink)}
+.opts{display:grid;gap:8px}
+.opt{text-align:left;background:var(--panel2);border:2px solid var(--line);padding:10px 14px;display:flex;gap:10px;align-items:baseline;min-width:0}
+.opt .k{font-family:var(--mono);font-size:12px;color:var(--muted);flex:none}
+.opt:hover:not(:disabled){border-color:var(--sky)}
+.opt.right{border-color:var(--good);background:#16403a}
+.opt.wrong{border-color:var(--bad);background:#4a1f30}
+.opt:disabled{cursor:default}
+.inrow{display:flex;gap:8px;flex-wrap:wrap}
+.inrow input{flex:1;min-width:0;background:var(--bg);color:var(--fg);border:2px solid var(--line);padding:9px 12px;font-family:var(--mono);font-size:16px}
+.fb{padding:12px 14px;border:2px solid;display:flex;flex-direction:column;gap:6px}
+.fb.ok{border-color:var(--good)}.fb.no{border-color:var(--bad)}
+.fb .v{font-family:var(--display);font-size:18px}
+.fb.ok .v{color:var(--good)}.fb.no .v{color:var(--bad)}
+.steps{display:flex;flex-direction:column;gap:8px;counter-reset:s}
+.steps .s{background:var(--panel2);padding:10px 14px;border-left:4px solid var(--mint);position:relative}
+.steps .s::before{counter-increment:s;content:"STEP " counter(s);display:block;font-family:var(--mono);font-size:11px;color:var(--mint);letter-spacing:.08em}
+.big{font-family:var(--display);font-size:40px;color:var(--sun);line-height:1}
+.stars{font-size:30px;letter-spacing:6px;color:var(--sun)}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{background:var(--panel2);border:2px solid var(--line);padding:4px 10px;font-family:var(--mono);font-size:13px;color:var(--fg)}
+.chip span{color:var(--muted);margin-left:4px}
+.chip[aria-pressed="true"]{border-color:var(--sun);color:var(--sun)}
+.src{font-family:var(--mono);font-size:11px;padding:1px 6px;background:var(--panel2);color:var(--muted)}
+.src.hw{color:var(--sky)}.src.rev{color:var(--sun)}.src.cb{color:var(--pink)}.src.lvtag{color:var(--fg)}
+.opt.picked{border-color:var(--sun);background:#3a3420}
+.tile.bonus{border-style:dashed}
+.prompt svg{margin-top:8px}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--sun);color:var(--bg);font-family:var(--display);font-size:18px;padding:8px 16px;box-shadow:4px 4px 0 #0b0b1a;z-index:20}
+.vault-sec{display:flex;flex-direction:column;gap:10px}
+.plan label{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px dashed var(--line)}
+.plan input{margin-top:5px;width:18px;height:18px;accent-color:var(--mint)}
+mjx-container{max-width:100%;overflow-x:auto;overflow-y:hidden}
+mjx-container[display="true"]{margin:.4em 0!important}
+@media (max-width:560px){
+  .day{grid-template-columns:1fr}
+  .stats .xpbar{width:70px}
+  h1{font-size:25px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<header class="hud"><div class="in">
+  <button class="logo" id="home">CALC<span>3</span> QUEST</button>
+  <div class="stats">
+    <span class="stat">RANK <b id="rank">1</b></span>
+    <span class="xpbar" title="XP to next rank"><i id="xpfill" style="width:0"></i></span>
+    <span class="stat">XP <b id="xp">0</b></span>
+    <span class="stat">🔥 <b id="streak">0</b></span>
+  </div>
+  <nav class="nav">
+    <button data-tab="map" aria-pressed="true">Map</button>
+    <button data-tab="vault" aria-pressed="false">Formula Vault</button>
+    <button data-tab="plan" aria-pressed="false">7-Day Plan</button>
+    <button data-tab="miss" aria-pressed="false">Misses <span id="misscount"></span></button>
+  </nav>
+</div></header>
+<main class="wrap" id="app"></main>
+
+<script>
+window.MathJax={tex:{inlineMath:[["\\(","\\)"]],displayMath:[["\\[","\\]"]]},svg:{fontCache:"global"},startup:{typeset:false}};
+window.LEVELS=[];
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-svg.js"></script>
+<script src="levels/l1.js"></script>
+<script src="levels/l2.js"></script>
+<script src="levels/l3.js"></script>
+<script src="levels/l4.js"></script>
+<script src="levels/l5.js"></script>
+<script src="levels/l6.js"></script>
+<script src="levels/svg.js"></script>
+<script src="levels/x1.js"></script>
+<script src="levels/x2.js"></script>
+<script src="levels/x3.js"></script>
+<script src="levels/x4.js"></script>
+<script src="levels/x5.js"></script>
+<script src="levels/x6.js"></script>
+<script src="levels/final.js"></script>
+<script>
+(function(){
+const TEST = new Date(2026,9,21,20,0,0);
+const DAYS=[
+ {d:1,label:"Thu",date:new Date(2026,9,15)},{d:2,label:"Fri",date:new Date(2026,9,16)},
+ {d:3,label:"Sat",date:new Date(2026,9,17)},{d:4,label:"Sun",date:new Date(2026,9,18)},
+ {d:5,label:"Mon",date:new Date(2026,9,19)},{d:6,label:"Tue",date:new Date(2026,9,20)},
+ {d:7,label:"Wed",date:new Date(2026,9,21)}];
+const PLAN=[
+ [1,"12.6 Cylinders & Quadric Surfaces + 14.1 Functions of Several Variables","Review #1, 4"],
+ [2,"14.2 Limits & Continuity + 14.3 Partial Derivatives","Review #2, 3, 5, 8a–b"],
+ [3,"14.4 Tangent Planes & Linear Approx + 14.5 Chain Rule","Review #7, 8c–e, 16"],
+ [4,"14.6 Directional Derivatives & Gradient","Review #6, 8f–k"],
+ [5,"14.7 Maximum & Minimum Values","Review #9–12"],
+ [6,"15.1 Double Integrals over Rectangles + 15.2 General Regions (9e numbering). Bonus if time: 15.3 Polar (HW due after the test)","Review #13–15"],
+ [7,"Review day: Final Boss practice test, fix misses, cheat sheet from memory. Be in your room by 7:45pm with UCF ID + pencils.","Test at 8:00pm"]];
+
+/* ---------- state ---------- */
+let S={xp:0,streak:0,lastDay:null,lv:{},plan:{}};
+try{const r=localStorage.getItem("c3q");if(r)S=Object.assign(S,JSON.parse(r));}catch(e){}
+function save(){try{localStorage.setItem("c3q",JSON.stringify(S));}catch(e){}}
+const KEYMAP={};LEVELS.forEach(L=>{if(L.final||!L.quest)return;L.quest.forEach((q,i)=>{q._k=L.id+":"+i;q._lv=L.id;KEYMAP[q._k]=q;});});
+function lv(id){return S.lv[id]||(S.lv[id]={lesson:0,lessonDone:false,quest:0,boss:{}});}
+function today(){const d=new Date();return d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate();}
+function touchStreak(){
+  const t=today(); if(S.lastDay===t) return;
+  const y=new Date();y.setDate(y.getDate()-1);
+  const ys=y.getFullYear()+"-"+(y.getMonth()+1)+"-"+y.getDate();
+  S.streak = S.lastDay===ys ? S.streak+1 : 1; S.lastDay=t;
+}
+const RANKS=[0,100,250,450,700,1000,1400,1900,2500,3200,4000];
+const RANKNAMES=["Point","Line","Plane","Paraboloid","Saddle Survivor","Gradient Climber","Chain Ruler","Critical Thinker","Integral Knight","Fubini Fighter","Calc 3 Legend"];
+function rankOf(x){let r=0;for(let i=0;i<RANKS.length;i++) if(x>=RANKS[i]) r=i;return r;}
+function addXP(n){
+  const before=rankOf(S.xp); S.xp+=n; touchStreak(); save(); hud();
+  const after=rankOf(S.xp);
+  if(after>before) toast("RANK UP! "+RANKNAMES[after]); else if(n>0) toast("+"+n+" XP");
+}
+function hud(){
+  const r=rankOf(S.xp);
+  $("#rank").textContent=(r+1);$("#rank").title=RANKNAMES[r];
+  $("#xp").textContent=S.xp;$("#streak").textContent=S.streak;
+  const lo=RANKS[r],hi=RANKS[r+1]||RANKS[r]+1000;
+  $("#xpfill").style.width=Math.min(100,(S.xp-lo)/(hi-lo)*100)+"%";
+}
+let tt;function toast(m){let t=$(".toast");if(!t){t=document.createElement("div");t.className="toast";document.body.appendChild(t);}t.textContent=m;t.hidden=false;clearTimeout(tt);tt=setTimeout(()=>t.hidden=true,1400);}
+
+/* ---------- helpers ---------- */
+function $(s,r){return (r||document).querySelector(s);}
+function h(html){const t=document.createElement("template");t.innerHTML=html.trim();return t.content;}
+const app=$("#app");
+function typeset(el){if(window.MathJax&&MathJax.typesetPromise){MathJax.typesetPromise([el]).catch(()=>{});}else{setTimeout(()=>typeset(el),300);}}
+function render(html){app.innerHTML=html;typeset(app);window.scrollTo(0,0);}
+function shuffle(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function norm(s){return String(s).toLowerCase().replace(/\s+/g,"").replace(/\*/g,"").replace(/−/g,"-");}
+function checkTyped(q,val){
+  const v=norm(val); if(!v) return false;
+  for(const a of q.answers){
+    if(typeof a==="number"){const n=toNum(val);if(!isNaN(n)&&Math.abs(n-a)<=(q.tol??Math.max(0.006,Math.abs(a)*0.001))) return true;}
+    else if(norm(a)===v) return true;
+  }
+  return false;
+}
+function toNum(s){s=String(s).trim().toLowerCase().replace(/\s+/g,"").replace(/[−–]/g,"-").replace(/π/g,"pi").replace(/√/g,"sqrt").replace(/×/g,"*");
+  if(!s||!/^[0-9+\-*/^().a-z]*$/.test(s)) return NaN;
+  const K=["sqrt","sin","cos","tan","pi","ln","e"],F={sqrt:"Math.sqrt",sin:"Math.sin",cos:"Math.cos",tan:"Math.tan",ln:"Math.log"},C={pi:"Math.PI",e:"Math.E"};
+  const T=[];let i=0;
+  while(i<s.length){const c=s[i];
+    if(/[0-9.]/.test(c)){let j=i;while(j<s.length&&/[0-9.]/.test(s[j]))j++;T.push({t:"n",v:s.slice(i,j)});i=j;continue;}
+    if(/[a-z]/.test(c)){const k=K.find(k=>s.startsWith(k,i));if(!k)return NaN;T.push(F[k]?{t:"f",v:F[k]}:{t:"n",v:C[k]});i+=k.length;continue;}
+    T.push({t:c==="("||c===")"?c:"o",v:c==="^"?"**":c});i++;}
+  let out="";
+  for(let k=0;k<T.length;k++){const a=T[k],p=T[k-1];
+    if(p&&(p.t==="n"||p.t===")")&&(a.t==="n"||a.t==="f"||a.t==="(")) out+="*";
+    if(a.t==="f"&&T[k+1]&&T[k+1].t==="n"){out+=a.v+"("+T[k+1].v+")";k++;T[k]={t:")"};continue;}
+    out+=a.v;}
+  try{const v=Function('"use strict";return ('+out+')')();return typeof v==="number"&&isFinite(v)?v:NaN;}catch(err){return NaN;}}
+
+/* ---------- views ---------- */
+let tab="map";
+document.querySelectorAll(".nav button").forEach(b=>b.onclick=()=>{tab=b.dataset.tab;go();});
+$("#home").onclick=()=>{tab="map";go();};
+function setNav(){document.querySelectorAll(".nav button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.tab===tab));}
+function go(){setNav();setNavCounts();if(tab==="map")map();else if(tab==="vault")vault();else if(tab==="miss")misses();else plan();}
+function setNavCounts(){const n=Object.keys(S.miss||{}).filter(k=>KEYMAP[k]).length;const el=$("#misscount");if(el)el.textContent=n?"("+n+")":"";}
+
+function daysLeft(){const ms=TEST-new Date();if(ms<0)return "Test time. You've got this.";const d=Math.floor(ms/864e5),hh=Math.floor(ms%864e5/36e5);return d+"d "+hh+"h until Test 2 · Wed Oct 21, 8:00pm";}
+
+function map(){
+  const t=new Date();t.setHours(0,0,0,0);
+  let html=`<section class="intro"><p class="eyebrow">MAC 2313 · Test 2 · Stewart Ch. 12.6, 14, 15</p><h1>Pick a level. Learn it, then beat it.</h1>
+  <p class="countdown">${daysLeft()}</p>
+  <p style="color:var(--muted);max-width:62ch">Every level has three stages: a <b style="color:var(--fg)">Lesson</b> that teaches from zero, a <b style="color:var(--fg)">Quest</b> that draws from a big bank of HW-style, review-style and curveball questions, and a <b style="color:var(--fg)">Boss</b> made of the real review-sheet problems with step-by-step solutions. Day 7 has the <b style="color:var(--fg)">Gauntlet</b>: a timed 20-question exam.</p></section>`;
+  for(const D of DAYS){
+    const isToday=D.date.getTime()===t.getTime();
+    const ls=LEVELS.filter(L=>L.day===D.d);
+    html+=`<section class="day ${isToday?"today":""}"><div class="when">Day ${D.d}<b>${D.label}</b></div><div class="tiles">`;
+    if(!ls.length) html+=`<div class="tile soon"><span class="nm">Levels loading…</span></div>`;
+    for(const L of ls){
+      const st=lv(L.id); const bossN=Object.keys(st.boss||{}).length;
+      if(L.soon){html+=`<div class="tile soon"><span class="sec">${L.sec}</span><span class="nm">${L.name}</span><span class="prog">Unlocking soon</span></div>`;continue;}
+      html+=`<button class="tile ${L.final?"final":""} ${L.bonus?"bonus":""}" data-lv="${L.id}"><span class="sec">${L.sec}</span><span class="nm">${L.name}</span>
+      <span class="prog">${L.lesson?`<span class="pip ${st.lessonDone?"on":""}">LESSON</span>`:""}${L.gauntlet?`<span class="pip ${S.gBest!=null?"on":""}">GAUNTLET ${S.gBest!=null?S.gBest+"/20":""}</span>`:""}${L.quest?`<span class="pip ${st.quest?"on":""}">${L.final?"MIXED":"QUEST"} ${L.final?"":(L.quest.length+"Q ")}${"★".repeat(st.quest||0)}</span>`:""}${L.boss?`<span class="pip ${bossN>=L.boss.length?"on":""}">BOSS ${bossN}/${L.boss.length}</span>`:""}</span></button>`;
+    }
+    html+=`</div></section>`;
+  }
+  render(html);
+  app.querySelectorAll("[data-lv]").forEach(b=>b.onclick=()=>openLevel(b.dataset.lv));
+}
+
+let cur=null,mode="lesson";
+function openLevel(id,m){cur=LEVELS.find(L=>L.id===id);mode=m||(cur.lesson?(lv(id).lessonDone?"quest":"lesson"):(cur.gauntlet?"gauntlet":cur.quest?"quest":"boss"));level();}
+function level(){
+  const L=cur;
+  const modes=[L.lesson&&["lesson","📖 Lesson"],L.gauntlet&&["gauntlet","⏱ Gauntlet"],L.quest&&["quest",L.final?"🎲 Mixed Quest":"⚔️ Quest"],L.boss&&["boss",L.final?"👾 Practice Test":"👾 Boss"]].filter(Boolean);
+  app.innerHTML=`<div class="lvhead"><button class="back" id="bk">← back to map</button><span class="eyebrow">${L.sec}</span><h1>${L.name}</h1></div>
+  <div class="modes">${modes.map(([k,n])=>`<button data-m="${k}" aria-pressed="${k===mode}">${n}</button>`).join("")}</div><div id="stage"></div>`;
+  $("#bk").onclick=()=>{tab="map";go();};
+  app.querySelectorAll("[data-m]").forEach(b=>b.onclick=()=>{mode=b.dataset.m;level();});
+  window.scrollTo(0,0);
+  if(mode==="lesson") lesson(); else if(mode==="gauntlet") gauntlet(); else if(mode==="quest") quest(); else boss();
+}
+
+/* ---------- lesson ---------- */
+function lesson(){
+  const L=cur,st=lv(L.id); let i=Math.min(st.lesson||0,L.lesson.length-1);
+  const stage=$("#stage");
+  function show(){
+    const c=L.lesson[i];
+    stage.innerHTML=`<article class="card"><span class="eyebrow">Part ${i+1} of ${L.lesson.length}</span><h2>${c.t}</h2><div class="body">${c.b}</div>
+    ${c.check?`<div id="chk"></div>`:""}
+    <div class="stepper"><button class="btn ghost" id="pv" ${i===0?"disabled":""}>← Prev</button>
+    <span class="dots">${L.lesson.map((_,k)=>`<i class="${k<=i?"on":""}"></i>`).join("")}</span>
+    <button class="btn" id="nx">${i===L.lesson.length-1?"Finish lesson ✓":"Next →"}</button></div></article>`;
+    if(c.check) miniCheck($("#chk",stage),c.check);
+    typeset(stage);
+    $("#pv").onclick=()=>{i--;show();window.scrollTo(0,0);};
+    $("#nx").onclick=()=>{
+      if(i<L.lesson.length-1){i++;st.lesson=i;save();show();window.scrollTo(0,0);}
+      else{ if(!st.lessonDone){st.lessonDone=true;addXP(30);} save(); mode="quest"; level(); }
+    };
+  }
+  show();
+}
+function miniCheck(el,q){
+  el.innerHTML=`<div class="tip"><b>Quick check.</b> ${q.q}</div><div class="opts">${q.o.map((o,k)=>`<button class="opt" data-k="${k}"><span class="k">${"ABCD"[k]}</span><span>${o}</span></button>`).join("")}</div><div id="mfb"></div>`;
+  el.querySelectorAll(".opt").forEach(b=>b.onclick=()=>{
+    const k=+b.dataset.k;el.querySelectorAll(".opt").forEach(x=>x.disabled=true);
+    el.querySelectorAll(".opt")[q.a].classList.add("right"); if(k!==q.a) b.classList.add("wrong");
+    $("#mfb",el).innerHTML=`<div class="fb ${k===q.a?"ok":"no"}"><span class="v">${k===q.a?"Nice.":"Not quite."}</span><div>${q.e}</div></div>`;
+    if(k===q.a) addXP(5); typeset(el);
+  });
+}
+
+/* ---------- quest engine ---------- */
+const TYPES=[["all","All"],["hw","HW-style"],["rev","Review-style"],["cb","Curveball"],["core","Core"]];
+const TYPENAME={hw:"HW-style",rev:"Review-style",cb:"Curveball",core:"Core"};
+function srcOf(q){return q.src||"core";}
+const DORD={e:0,m:1,h:2};
+function allQ(){return LEVELS.filter(l=>!l.final&&!l.bonus&&l.quest).flatMap(l=>l.quest);}
+function lvName(id){const L=LEVELS.find(l=>l.id===id);return L?L.sec.replace("Stewart ",""):"";}
+function pick(pool,filt,len){
+  const base=filt==="all"?pool:pool.filter(q=>srcOf(q)===filt);
+  const n=len==="all"?base.length:Math.min(+len,base.length);
+  let out;
+  if(n>=base.length) out=shuffle(base);
+  else if(filt==="all"){const cb=shuffle(base.filter(q=>srcOf(q)==="cb")),rest=shuffle(base.filter(q=>srcOf(q)!=="cb"));
+    const k=Math.min(cb.length,Math.round(n*0.3));out=cb.slice(0,k).concat(rest.slice(0,n-k));}
+  else out=shuffle(base).slice(0,n);
+  return out.map(q=>[q,Math.random()]).sort((a,b)=>(DORD[a[0].d||"e"]-DORD[b[0].d||"e"])||(a[1]-b[1])).map(x=>x[0]);
+}
+function qHead(q,showLv){return `<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"><span class="diff ${q.d||"e"}">${{e:"EASY",m:"MEDIUM",h:"HARD"}[q.d||"e"]}</span><span class="src ${srcOf(q)}">${TYPENAME[srcOf(q)]}</span>${showLv&&q._lv?`<span class="src lvtag">${lvName(q._lv)}</span>`:""}</div>`;}
+function qBody(q){return `<div class="prompt">${q.q}</div>`+(q.type==="in"?`<div class="inrow"><input id="ans" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Your answer"><button class="btn" id="sub">Check</button></div>`
+  :`<div class="opts">${shuffle(q.o.map((o,k)=>[o,k])).map(([o,k],j)=>`<button class="opt" data-k="${k}"><span class="k">${"ABCD"[j]}</span><span>${o}</span></button>`).join("")}</div>`);}
+function markMiss(q,ok){if(!q._k)return;S.miss=S.miss||{};if(ok)delete S.miss[q._k];else S.miss[q._k]=1;save();setNavCounts();}
+
+function quest(){
+  const L=cur,st=lv(L.id),stage=$("#stage");
+  const pool=L.final?allQ():L.quest;
+  questSetup(stage,pool,{title:L.final?"Mixed practice: every level":"Quest",showLv:!!L.final,
+    best:st.quest,onStars:s=>{if(s>(st.quest||0)){st.quest=s;save();}},bossBtn:!!L.boss&&!L.final});
+}
+function questSetup(stage,pool,o){
+  let filt=S.qf&&TYPES.some(t=>t[0]===S.qf)?S.qf:"all", len=S.ql||12;
+  const count=k=>k==="all"?pool.length:pool.filter(q=>srcOf(q)===k).length;
+  function draw(){
+    stage.innerHTML=`<article class="card"><h2>${o.title}</h2><div class="body">
+    <p>${pool.length} questions in this pool. Every run draws a fresh mix, ordered easy to hard.</p>
+    <span class="eyebrow">Question type</span>
+    <div class="chips">${TYPES.filter(([k])=>count(k)>0).map(([k,n])=>`<button class="chip" data-f="${k}" aria-pressed="${k===filt}">${n} <span>${count(k)}</span></button>`).join("")}</div>
+    <span class="eyebrow">Run length</span>
+    <div class="chips">${[8,12,20,"all"].map(n=>`<button class="chip" data-n="${n}" aria-pressed="${String(n)===String(len)}">${n==="all"?"All":n}</button>`).join("")}</div>
+    <p style="color:var(--muted)"><b style="color:var(--fg)">HW-style</b> mirrors your WebAssign homework. <b style="color:var(--fg)">Review-style</b> mirrors the review sheet with new numbers. <b style="color:var(--fg)">Curveball</b> is everything else the test could throw at you: true/false, graphs, spot-the-mistake, word problems.</p>
+    <p style="color:var(--muted)">3 hearts (5 for runs longer than 12). Misses come back at the end of the run and get saved to your Misses tab. Typed answers accept things like <code>3/2</code>, <code>-0.4</code>, <code>2sqrt(5)</code>, <code>9pi/4</code>.</p>
+    ${o.best?`<p>Best so far: <span style="color:var(--sun)">${"★".repeat(o.best)}${"☆".repeat(3-o.best)}</span></p>`:""}</div>
+    <div><button class="btn" id="go">Start</button></div></article>`;
+    stage.querySelectorAll("[data-f]").forEach(b=>b.onclick=()=>{filt=b.dataset.f;S.qf=filt;save();draw();});
+    stage.querySelectorAll("[data-n]").forEach(b=>b.onclick=()=>{len=b.dataset.n==="all"?"all":+b.dataset.n;S.ql=len;save();draw();});
+    $("#go",stage).onclick=()=>runQuest(stage,pick(pool,filt,len),o,draw);
+  }
+  draw();
+}
+function runQuest(stage,qs,o,back){
+  const total=qs.length; let queue=qs.slice(), hearts=total>12?5:3, H=hearts, combo=0, first=0, seen=new Set(), done=0;
+  next();
+  function next(){
+    if(hearts<=0) return over(false);
+    if(!queue.length) return over(true);
+    const q=queue[0], isRetry=seen.has(q);
+    stage.innerHTML=`<article class="card"><div class="qtop"><span>Q ${done+1} / ${total}${isRetry?" · retry":""}</span><span class="combo">${combo>=2?"COMBO x"+combo:""}</span><span class="hearts">${"♥".repeat(hearts)}${"♡".repeat(H-hearts)}</span></div>
+    ${qHead(q,o.showLv)}${qBody(q)}<div id="fb"></div></article>`;
+    typeset(stage); window.scrollTo(0,0);
+    if(q.type==="in"){const go=()=>{if(!$("#ans").value.trim())return;grade(checkTyped(q,$("#ans").value));};$("#sub").onclick=go;$("#ans").onkeydown=e=>{if(e.key==="Enter")go();};$("#ans").focus({preventScroll:true});}
+    else stage.querySelectorAll(".opt").forEach(b=>b.onclick=()=>{
+      stage.querySelectorAll(".opt").forEach(x=>{x.disabled=true;if(+x.dataset.k===q.a)x.classList.add("right");});
+      if(+b.dataset.k!==q.a)b.classList.add("wrong"); grade(+b.dataset.k===q.a);
+    });
+    function grade(ok){
+      if(q.type==="in"){$("#sub").disabled=true;$("#ans").disabled=true;}
+      queue.shift(); markMiss(q,ok);
+      if(ok){ combo++; done++; if(!seen.has(q)) first++; addXP(10+(combo>=3?5:0)+(q.d==="h"?5:0));}
+      else { combo=0; hearts--; queue.push(q); }
+      seen.add(q);
+      $("#fb").innerHTML=`<div class="fb ${ok?"ok":"no"}"><span class="v">${ok?(combo>=3?"Combo!":"Correct!"):"Not quite. −1 ♥"}</span>
+      ${q.type==="in"&&!ok?`<div>Answer: ${q.show||q.answers[0]}</div>`:""}<div>${q.e}</div>
+      <div><button class="btn" id="nq">${hearts<=0?"See results":(queue.length?"Next →":"Finish")}</button></div></div>`;
+      typeset($("#fb")); $("#nq").onclick=next; $("#nq").focus({preventScroll:true});
+    }
+  }
+  function over(win){
+    const acc=first/total; const stars= !win?0: acc>=.9?3: acc>=.7?2:1;
+    if(o.onStars) o.onStars(stars);
+    if(win) addXP(10*stars+total);
+    stage.innerHTML=`<article class="card" style="text-align:center;align-items:center">
+    <span class="eyebrow">${win?"Run cleared":"Out of hearts"}</span>
+    <div class="stars">${"★".repeat(stars)}${"☆".repeat(3-stars)}</div>
+    <p class="big">${first}/${total}</p><p style="color:var(--muted)">right on the first try</p>
+    <p style="max-width:52ch">${win?(stars===3?"Locked in.":"Solid. Run it again with a fresh draw to lock it in."):"No stress. Every miss is saved in your Misses tab. Reread the lesson part, then try again."}</p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center"><button class="btn ghost" id="again">New run</button>${o.bossBtn?`<button class="btn pink" id="tob">Fight the Boss →</button>`:""}</div></article>`;
+    $("#again").onclick=back; if($("#tob")) $("#tob").onclick=()=>{mode="boss";level();};
+  }
+}
+
+/* ---------- misses ---------- */
+function misses(){
+  const keys=Object.keys(S.miss||{}); const qs=keys.map(k=>KEYMAP[k]).filter(Boolean);
+  if(!qs.length){render(`<section class="intro"><p class="eyebrow">Mistake book</p><h1>Misses</h1><p style="color:var(--muted);max-width:60ch">Nothing here yet. Any question you get wrong in a Quest or the Gauntlet lands here. Get it right later and it leaves the list.</p></section>`);return;}
+  const byLv={};qs.forEach(q=>{byLv[q._lv]=(byLv[q._lv]||0)+1;});
+  app.innerHTML=`<section class="intro"><p class="eyebrow">Mistake book</p><h1>Misses</h1><p style="color:var(--muted);max-width:60ch">${qs.length} question${qs.length>1?"s":""} you've missed. Get one right and it leaves the list.</p>
+  <div class="chips">${Object.entries(byLv).map(([k,n])=>`<span class="chip" style="cursor:default">${lvName(k)} <span>${n}</span></span>`).join("")}</div></section><div id="stage"></div>`;
+  const stage=$("#stage");
+  const start=()=>{stage.innerHTML=`<article class="card"><h2>Redo your misses</h2><div class="body"><p>Same rules as a Quest. ${qs.length>12?"Runs are capped at 20.":""}</p></div><div><button class="btn pink" id="go">Start</button></div></article>`;
+    $("#go").onclick=()=>runQuest(stage,shuffle(Object.keys(S.miss||{}).map(k=>KEYMAP[k]).filter(Boolean)).slice(0,20),{showLv:true},()=>{tab="miss";go();});};
+  start(); typeset(app);
+}
+
+/* ---------- gauntlet (exam mode) ---------- */
+function gauntlet(){
+  const stage=$("#stage"),N=20,MIN=45;
+  const best=S.gBest;
+  stage.innerHTML=`<article class="card"><h2>Gauntlet: exam mode</h2><div class="body">
+  <p><b>${N} questions</b> drawn from every level, about a third of them curveballs. <b>${MIN}-minute timer.</b> No feedback until the end, just like the real test.</p>
+  <p style="color:var(--muted)">Work on paper. Skip and come back isn't allowed, so budget about 2 minutes each. Polar (bonus) is left out.</p>
+  ${best!=null?`<p>Best score: <span style="color:var(--sun)">${best}/${N}</span></p>`:""}</div>
+  <div><button class="btn pink" id="go">Start the clock</button></div></article>`;
+  $("#go").onclick=start;
+  function start(){
+    const lvls=LEVELS.filter(l=>!l.final&&!l.bonus&&l.quest);
+    let qs=[];lvls.forEach(l=>{qs=qs.concat(shuffle(l.quest.filter(q=>q.d!=="e")).slice(0,2));});
+    const rest=shuffle(allQ().filter(q=>!qs.includes(q)&&srcOf(q)==="cb"));
+    qs=shuffle(qs.concat(rest.slice(0,N-qs.length))).slice(0,N);
+    const ans=[]; let i=0; const end=Date.now()+MIN*60e3; let timer;
+    function tick(){const ms=end-Date.now();const el=$("#clock");if(ms<=0){finish();return;}if(el){const m=Math.floor(ms/6e4),s=Math.floor(ms%6e4/1e3);el.textContent=m+":"+String(s).padStart(2,"0");el.style.color=ms<5*6e4?"var(--pink)":"";}}
+    timer=setInterval(tick,1000);
+    show();
+    function show(){
+      if(i>=qs.length) return finish();
+      const q=qs[i];
+      stage.innerHTML=`<article class="card"><div class="qtop"><span>Q ${i+1} / ${qs.length}</span><span>⏱ <b id="clock">${MIN}:00</b></span></div>${qHead(q,true)}${qBody(q)}
+      <div><button class="btn" id="lock" disabled>Lock in →</button></div></article>`;
+      typeset(stage); tick(); window.scrollTo(0,0);
+      let choice=null;
+      if(q.type==="in"){const inp=$("#ans");$("#sub").hidden=true;inp.oninput=()=>{choice=inp.value;$("#lock").disabled=!inp.value.trim();};inp.onkeydown=e=>{if(e.key==="Enter"&&inp.value.trim())lock();};inp.focus({preventScroll:true});}
+      else stage.querySelectorAll(".opt").forEach(b=>b.onclick=()=>{stage.querySelectorAll(".opt").forEach(x=>x.classList.remove("picked"));b.classList.add("picked");choice=+b.dataset.k;$("#lock").disabled=false;});
+      $("#lock").onclick=lock;
+      function lock(){const ok=q.type==="in"?checkTyped(q,choice):choice===q.a;ans.push({q,choice,ok});i++;show();}
+    }
+    function finish(){
+      clearInterval(timer);
+      for(let k=ans.length;k<qs.length;k++) ans.push({q:qs[k],choice:null,ok:false});
+      const sc=ans.filter(a=>a.ok).length, pct=Math.round(sc/qs.length*100);
+      const grade=pct>=90?"A":pct>=80?"B":pct>=70?"C":pct>=60?"D":"F";
+      ans.forEach(a=>markMiss(a.q,a.ok));
+      if(S.gBest==null||sc>S.gBest){S.gBest=sc;}
+      save(); addXP(sc*5+(pct>=90?50:0));
+      const wrong=ans.filter(a=>!a.ok);
+      stage.innerHTML=`<article class="card" style="text-align:center;align-items:center"><span class="eyebrow">Gauntlet complete</span>
+      <p class="big">${sc}/${qs.length}</p><p style="font-family:var(--display);font-size:22px;color:${pct>=70?"var(--mint)":"var(--pink)"}">${pct}% · ${grade}</p>
+      <p style="max-width:52ch;color:var(--muted)">${pct>=90?"That's A territory. Keep it warm with one more run tomorrow.":pct>=70?"Passing. Review the misses below, then run it again.":"Below a C for now. Go through every miss below, replay those levels' Quests, then come back."}</p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center"><button class="btn ghost" id="again">New Gauntlet</button></div></article>
+      ${wrong.length?`<h2 style="margin-top:8px">Review your ${wrong.length} miss${wrong.length>1?"es":""}</h2>`:""}
+      ${wrong.map(a=>`<article class="card">${qHead(a.q,true)}<div class="prompt">${a.q.q}</div>
+        <div class="fb no"><span class="v">${a.choice==null||a.choice===""?"Not answered":"You answered: "+(a.q.type==="in"?esc(a.choice):a.q.o[a.choice])}</span>
+        <div>Correct: ${a.q.type==="in"?(a.q.show||a.q.answers[0]):a.q.o[a.q.a]}</div><div>${a.q.e}</div></div></article>`).join("")}`;
+      stage.classList.add("stack"); typeset(stage); window.scrollTo(0,0);
+      $("#again").onclick=()=>{stage.classList.remove("stack");gauntlet();};
+    }
+  }
+}
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"})[c]);}
+
+/* ---------- boss (review sheet, self-graded) ---------- */
+function boss(){
+  const L=cur,st=lv(L.id),stage=$("#stage");
+  let html=`<article class="card"><h2>${L.final?"Final Boss":"Boss: review sheet"}</h2><div class="body">
+  <p>${L.bossIntro||"These are problems from your actual Test 2 review sheet. Work each one on paper like it's the test, with full work shown. Then reveal the solution one step at a time and grade yourself honestly."}</p></div></article>`;
+  L.boss.forEach((b,k)=>{const r=st.boss[k];
+    html+=`<article class="card" id="b${k}"><div class="qtop"><span>${b.tag||""}</span><span>${r?{3:"✅ Nailed it",2:"🤔 Partial",1:"❌ Missed"}[r]:""}</span></div>
+    <div class="prompt">${b.q}</div>
+    <div class="steps" id="st${k}"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap" id="ctl${k}"><button class="btn sun" data-rev="${k}">I worked it. Reveal step 1</button></div></article>`;
+  });
+  stage.innerHTML=`<div class="stack">${html}</div>`; typeset(stage);
+  stage.querySelectorAll("[data-rev]").forEach(btn=>{
+    const k=+btn.dataset.rev,b=L.boss[k];let n=0;
+    btn.onclick=()=>{
+      const box=$("#st"+k); box.appendChild(h(`<div class="s">${b.s[n]}</div>`)); typeset(box.lastElementChild); n++;
+      if(n<b.s.length){btn.textContent=`Reveal step ${n+1}`;}
+      else{ $("#ctl"+k).innerHTML=`<span style="align-self:center;color:var(--muted)">How did you do?</span>
+        <button class="btn" data-g="3">Nailed it</button><button class="btn sun" data-g="2">Partial</button><button class="btn pink" data-g="1">Missed</button>`;
+        $("#ctl"+k).querySelectorAll("[data-g]").forEach(g=>g.onclick=()=>{
+          const v=+g.dataset.g, prev=st.boss[k]; st.boss[k]=v; save();
+          if(!prev) addXP(v===3?40:v===2?25:15);
+          $("#ctl"+k).innerHTML=`<span style="color:var(--muted)">${v===3?"✅ Saved. That one's yours.":v===2?"🤔 Saved. Redo this one tomorrow without looking.":"❌ Saved. Reread that lesson part, then redo it from a blank page."}</span>`;
+        });
+      }
+    };
+  });
+}
+
+/* ---------- vault ---------- */
+function vault(){
+  let html=`<section class="intro"><p class="eyebrow">Your cheat sheet</p><h1>Formula Vault</h1><p style="color:var(--muted);max-width:62ch">Everything you need to memorize, by section. You can't bring notes to the test, so on Day 7 try writing this whole page from memory.</p></section><div class="stack">`;
+  for(const L of LEVELS){ if(!L.vault) continue;
+    html+=`<article class="card vault-sec"><span class="eyebrow">${L.sec}</span><h2>${L.name}</h2><div class="body">${L.vault}</div></article>`;}
+  render(html+"</div>");
+}
+
+/* ---------- plan ---------- */
+function plan(){
+  let html=`<section class="intro"><p class="eyebrow">Learn it, then practice it · about 2.5–3 hrs a day</p><h1>7-Day Plan</h1><p class="countdown">${daysLeft()}</p></section><article class="card plan">`;
+  PLAN.forEach(([d,t,r])=>{const D=DAYS[d-1];
+    html+=`<label><input type="checkbox" id="p${d}" ${S.plan[d]?"checked":""}><span><b>Day ${d} · ${D.label} ${D.date.getMonth()+1}/${D.date.getDate()}</b><br>${t}<br><span style="color:var(--muted)">${r}</span></span></label>`;});
+  html+=`</article><article class="card" style="margin-top:14px"><h3>Each day</h3><ol>
+  <li>Play the Lesson (about 45 min). Write formulas + one example on paper as you go.</li>
+  <li>Cover a Stewart worked example and try it yourself (about 30 min).</li>
+  <li>Run the Quest until you get 2–3 stars (about 45 min).</li>
+  <li>Fight the Boss on paper with full work shown (about 20 min).</li>
+  <li>Glance at the Formula Vault before bed.</li></ol></article>`;
+  render(html);
+  app.querySelectorAll(".plan input").forEach(c=>c.onchange=()=>{const d=c.id.slice(1);S.plan[d]=c.checked;save();if(c.checked)addXP(25);});
+}
+
+hud(); go();
+})();
+</script>
